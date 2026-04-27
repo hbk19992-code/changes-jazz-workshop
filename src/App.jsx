@@ -68,6 +68,10 @@ export default function App() {
   const [libraryRefreshKey, setLibraryRefreshKey] = useState(0);
 
   const audio = useAudio();
+  // Stable ref so the sequencer effect never restarts just because
+  // the audio object got a new reference during a render.
+  const audioRef = useRef(audio);
+  useEffect(() => { audioRef.current = audio; });
 
   // The primary identification, recomputed whenever any relevant input changes
   const result = useMemo(
@@ -231,11 +235,11 @@ export default function App() {
     }
 
     let step = 0;
-    const beatMs = (60 / tempo) * 1000 * 2; // two beats per chord
+    const beatMs = (60 / tempo) * 1000 * 2;
 
     const playStep = () => {
       setCurrentStep(step);
-      audio.playChord(sequence[step].frets, true);
+      audioRef.current.playChord(sequence[step].frets, true);
       step = (step + 1) % sequence.length;
       playTimeoutRef.current = setTimeout(playStep, beatMs);
     };
@@ -244,7 +248,7 @@ export default function App() {
     return () => {
       if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
     };
-  }, [isPlaying, sequence, tempo, audio]);
+  }, [isPlaying, sequence, tempo]); // audio는 ref로 참조 — deps 불필요
 
   const onPlayString = (freq) => audio.playNote(freq, 0, 1.2, 0.12);
 
