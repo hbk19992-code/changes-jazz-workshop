@@ -21,6 +21,10 @@ import {
 } from "./theory/diatonic.js";
 
 import { LIBRARY } from "./data/voicings.js";
+import {
+  quickSaveProgression,
+  newProgression,
+} from "./data/library.js";
 
 import { ToggleChip } from "./components/ToggleChip.jsx";
 import { InteractiveFretboard } from "./components/InteractiveFretboard.jsx";
@@ -29,6 +33,7 @@ import { TheoryCoach } from "./components/TheoryCoach.jsx";
 import { MiniDiagram } from "./components/MiniDiagram.jsx";
 import { CompareTab } from "./components/CompareTab.jsx";
 import { SequencerTab } from "./components/SequencerTab.jsx";
+import { LibraryTab } from "./components/LibraryTab.jsx";
 
 export default function App() {
   // Fretboard state
@@ -58,6 +63,9 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const playTimeoutRef = useRef(null);
+
+  // Library refresh — bumped whenever something is saved so LibraryTab reloads
+  const [libraryRefreshKey, setLibraryRefreshKey] = useState(0);
 
   const audio = useAudio();
 
@@ -183,6 +191,33 @@ export default function App() {
   const removeFromSequence = (id) =>
     setSequence((prev) => prev.filter((v) => v.id !== id));
 
+  // Quick-save the current sequencer into the library as a fresh "Untitled sketch"
+  const quickSaveSequence = async () => {
+    if (sequence.length === 0) return;
+    const prog = newProgression({
+      label: "Sketch",
+      chords: sequence.map((s) => s.name),
+      voicings: sequence.map((s) => s.frets),
+    });
+    await quickSaveProgression(prog);
+    setLibraryRefreshKey((k) => k + 1);
+    alert(`라이브러리에 저장됨 (${sequence.length}개 코드)`);
+  };
+
+  // Load a saved progression's chord names into the sequencer.
+  // We can't perfectly reconstruct the original voicings from chord names
+  // alone, so we use the saved voicings array if present, otherwise leave
+  // each step with an empty voicing the user can fill in later.
+  const loadProgressionToSequencer = (progression) => {
+    const newSeq = progression.chords.map((name, i) => ({
+      id: `${Date.now()}_${i}`,
+      name,
+      frets: progression.voicings?.[i] || [null, null, null, null, null, null],
+    }));
+    setSequence(newSeq);
+    setTab("sequencer");
+  };
+
   // Sequencer playback loop — runs only while isPlaying
   useEffect(() => {
     if (!isPlaying) {
@@ -259,6 +294,7 @@ export default function App() {
             { key: "identify", label: "식별" },
             { key: "compare", label: "보이싱 비교" },
             { key: "sequencer", label: "진행 시퀀서" },
+            { key: "library", label: "라이브러리" },
           ].map((t) => (
             <button
               key={t.key}
@@ -573,7 +609,16 @@ export default function App() {
             onClear={() => setSequence([])}
             currentChord={result.type === "chord" ? result.name : null}
             onAddCurrent={addToSequence}
+            onQuickSave={quickSaveSequence}
             setTab={setTab}
+          />
+        )}
+
+        {/* === LIBRARY TAB === */}
+        {tab === "library" && (
+          <LibraryTab
+            refreshKey={libraryRefreshKey}
+            onLoadProgression={loadProgressionToSequencer}
           />
         )}
 

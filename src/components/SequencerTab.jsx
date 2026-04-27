@@ -16,6 +16,7 @@ export function SequencerTab({
   onClear,
   currentChord,
   onAddCurrent,
+  onQuickSave,
   setTab,
 }) {
   return (
@@ -72,13 +73,22 @@ export function SequencerTab({
             </span>
           </div>
           {sequence.length > 0 && (
-            <button
-              onClick={onClear}
-              className="text-xs tracking-widest uppercase text-[#6b1f2e] hover:text-[#1a0f08] border-b border-[#6b1f2e] hover:border-[#1a0f08]"
-              style={{ fontFamily: "'Fraunces', serif" }}
-            >
-              비우기
-            </button>
+            <>
+              <button
+                onClick={onQuickSave}
+                className="text-xs tracking-widest uppercase text-[#6b1f2e] hover:text-[#1a0f08] border-b border-[#6b1f2e] hover:border-[#1a0f08]"
+                style={{ fontFamily: "'Fraunces', serif" }}
+              >
+                ★ 라이브러리에 저장
+              </button>
+              <button
+                onClick={onClear}
+                className="text-xs tracking-widest uppercase text-[#6b1f2e] hover:text-[#1a0f08] border-b border-[#6b1f2e] hover:border-[#1a0f08]"
+                style={{ fontFamily: "'Fraunces', serif" }}
+              >
+                비우기
+              </button>
+            </>
           )}
         </div>
       </div>
