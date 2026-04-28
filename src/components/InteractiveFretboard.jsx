@@ -36,18 +36,20 @@ export function InteractiveFretboard({
   const MAX_START = 20;
   const endFret = startFret + NUM_VISIBLE - 1;
 
-  // Layout — viewBox at 600×440 (~3:2.2) renders ~800px tall at full width.
+  // viewBox 600 × 520 — proportionally taller so string gaps don't collapse
+  // when the container is narrow (mobile). Net effect: each string gap is
+  // big enough that dots clearly separate from each other.
   const W = 600;
-  const H = 440;
-  const padLeft = 76;
-  const padRight = 32;
-  const neckTop = 44;
-  const neckBottom = 388;
+  const H = 520;
+  const padLeft = 80;
+  const padRight = 36;
+  const neckTop = 50;
+  const neckBottom = 470;
   const neckH = neckBottom - neckTop;
-  // Strings are spaced across 6 strings (5 gaps between them) with a tiny
-  // margin top and bottom. Bigger gap = more room around dots.
-  const stringGap = neckH / 5.5;
-  const stringTop = neckTop + stringGap * 0.4;
+  // 5 string gaps (between 6 strings) plus a small margin top/bottom.
+  // Use 5.4 so each gap is generous, with strings starting closer to top.
+  const stringGap = neckH / 5.4;
+  const stringTop = neckTop + stringGap * 0.2;
 
   // Compute the visible fret window's positions.
   // We treat the visible window as one "scale-length unit" but offset by the
@@ -456,9 +458,14 @@ export function InteractiveFretboard({
               </g>
             );
           }
-          // Fretted — show small × that lets the user mute again
+          // Fretted — × is barely visible until hovered (lets the user mute again)
           return (
-            <g key={i} onClick={() => setString(i, null)} style={{ cursor: "pointer" }}>
+            <g
+              key={i}
+              onClick={() => setString(i, null)}
+              style={{ cursor: "pointer" }}
+              className="opacity-25 hover:opacity-80 transition-opacity"
+            >
               <text
                 x={36}
                 y={y + 5}
@@ -466,7 +473,6 @@ export function InteractiveFretboard({
                 fontSize={14}
                 fill="#8a7560"
                 fontFamily="'Fraunces', serif"
-                opacity={0.5}
               >
                 ×
               </text>
@@ -551,11 +557,11 @@ export function InteractiveFretboard({
           const opacity =
             guideTonesMode && intervalLabel && !isGuideTone && !isRoot ? 0.28 : 1;
 
-          const radius = isRoot ? 24 : 22;
+          const radius = isRoot ? 21 : 19;
           const pc = cellPC(i, f);
           const noteName = NOTE_NAMES_FLAT[pc];
           const label = colorByInterval && intervalLabel ? intervalLabel : noteName;
-          const fontSize = label.length > 1 ? 16 : 18;
+          const fontSize = label.length > 1 ? 14 : 16;
 
           return (
             <g key={i} pointerEvents="none" opacity={opacity} filter="url(#dotShadow)">
@@ -569,7 +575,7 @@ export function InteractiveFretboard({
               />
               <text
                 x={cx}
-                y={cy + 6.5}
+                y={cy + 5.5}
                 textAnchor="middle"
                 fontSize={fontSize}
                 fill="#fbf4e3"
