@@ -32,20 +32,21 @@ export function InteractiveFretboard({
   colorByInterval = false,
   guideTonesMode = false,
 }) {
-  const NUM_VISIBLE = 12;
-  const MAX_START = 13; // can scroll up to fret 24 (start 13 + 12 visible)
+  const NUM_VISIBLE = 5;
+  const MAX_START = 20; // can scroll up to fret 24 (start 20 + 5 visible - 1)
   const endFret = startFret + NUM_VISIBLE - 1;
 
-  // Layout — designed for a 16:6 aspect ratio (matches the mockup)
-  const W = 1000;
-  const H = 160;
+  // Layout — wider per-fret spacing means we shrink overall width and
+  // give each fret cell room to breathe. Aspect ~ 600 × 230.
+  const W = 600;
+  const H = 230;
   const padLeft = 60;       // includes nut + open-string column
-  const padRight = 40;
-  const neckTop = 22;
-  const neckBottom = 122;
+  const padRight = 25;
+  const neckTop = 28;
+  const neckBottom = 188;
   const neckH = neckBottom - neckTop;
-  const stringGap = neckH / 7; // 7 gaps for visual spacing
-  const stringTop = neckTop + stringGap * 0.95;
+  const stringGap = neckH / 6.2;  // 6 strings, slightly tighter than 6 gaps
+  const stringTop = neckTop + stringGap * 1.0;
 
   // Compute the visible fret window’s positions.
   // We treat the visible window as one “scale-length unit” but offset by the
@@ -82,7 +83,7 @@ export function InteractiveFretboard({
   });
   const svgRef = useRef(null);
   const DRAG_THRESHOLD = 6;
-  const DRAG_PIXELS_PER_FRET = 36; // horizontal drag — about one finger width
+  const DRAG_PIXELS_PER_FRET = 80; // wider cells → longer drag per fret
 
   // –– Wheel scroll (both horizontal and vertical wheels move position) ––
   useEffect(() => {
@@ -155,6 +156,7 @@ export function InteractiveFretboard({
 
   const positions = [
     { label: "Nut", fret: 1 },
+    { label: "3fr", fret: 3 },
     { label: "5fr", fret: 5 },
     { label: "7fr", fret: 7 },
     { label: "9fr", fret: 9 },
@@ -294,30 +296,30 @@ export function InteractiveFretboard({
                 fill="none"
               />
             );
-          })}
+          });}
         </g>
 
         {/* Nut (only when at the start of the neck) */}
         {startFret === 1 && (
           <g pointerEvents="none">
             <rect
-              x={padLeft - 1}
+              x={padLeft - 2}
               y={neckTop - 2}
-              width={6}
+              width={9}
               height={neckH + 4}
               fill="#f8efd4"
               stroke="#1a0f08"
-              strokeWidth={0.6}
+              strokeWidth={0.8}
             />
-            <rect x={padLeft} y={neckTop - 1} width={1.5} height={neckH + 2} fill="#fffbe8" opacity={0.6} />
+            <rect x={padLeft - 1} y={neckTop - 1} width={2.5} height={neckH + 2} fill="#fffbe8" opacity={0.6} />
           </g>
         )}
         {startFret > 1 && (
           <text
-            x={padLeft - 8}
-            y={neckTop + neckH / 2 + 4}
+            x={padLeft - 10}
+            y={neckTop + neckH / 2 + 5}
             textAnchor="end"
-            fontSize={11}
+            fontSize={13}
             fill="#6b5b4a"
             fontFamily="'Fraunces', serif"
             fontStyle="italic"
@@ -334,8 +336,8 @@ export function InteractiveFretboard({
           const x = fretX(absFret);
           return (
             <g key={absFret} pointerEvents="none">
-              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="#3a2510" strokeWidth={2.4} />
-              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="url(#brassFret)" strokeWidth={1.6} />
+              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="#3a2510" strokeWidth={3.2} />
+              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="url(#brassFret)" strokeWidth={2.2} />
             </g>
           );
         })}
@@ -348,18 +350,18 @@ export function InteractiveFretboard({
           if (doubleInlayFrets.has(absFret)) {
             return (
               <g key={absFret} pointerEvents="none">
-                <circle cx={cx} cy={neckTop + neckH * 0.3} r={5} fill="#e8dcbe" />
-                <circle cx={cx - 1} cy={neckTop + neckH * 0.3 - 2} r={1.3} fill="#fffce8" opacity={0.7} />
-                <circle cx={cx} cy={neckTop + neckH * 0.7} r={5} fill="#e8dcbe" />
-                <circle cx={cx - 1} cy={neckTop + neckH * 0.7 - 2} r={1.3} fill="#fffce8" opacity={0.7} />
+                <circle cx={cx} cy={neckTop + neckH * 0.3} r={7} fill="#e8dcbe" />
+                <circle cx={cx - 1.5} cy={neckTop + neckH * 0.3 - 2.5} r={2} fill="#fffce8" opacity={0.7} />
+                <circle cx={cx} cy={neckTop + neckH * 0.7} r={7} fill="#e8dcbe" />
+                <circle cx={cx - 1.5} cy={neckTop + neckH * 0.7 - 2.5} r={2} fill="#fffce8" opacity={0.7} />
               </g>
             );
           }
           if (inlayFrets.has(absFret)) {
             return (
               <g key={absFret} pointerEvents="none">
-                <circle cx={cx} cy={cy} r={5.5} fill="#e8dcbe" />
-                <circle cx={cx - 1} cy={cy - 2} r={1.5} fill="#fffce8" opacity={0.7} />
+                <circle cx={cx} cy={cy} r={8} fill="#e8dcbe" />
+                <circle cx={cx - 1.5} cy={cy - 3} r={2.2} fill="#fffce8" opacity={0.7} />
               </g>
             );
           }
@@ -368,22 +370,22 @@ export function InteractiveFretboard({
 
         {/* Strings (with shadow) */}
         <g filter="url(#stringShadow)" pointerEvents="none">
-          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={2.6} />
-          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={2.2} />
-          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={1.9} />
-          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="url(#metalString)" strokeWidth={1.5} />
-          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="url(#metalString)" strokeWidth={1.2} />
-          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="url(#metalString)" strokeWidth={0.9} />
+          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={3.4} />
+          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={2.9} />
+          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={2.4} />
+          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="url(#metalString)" strokeWidth={1.9} />
+          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="url(#metalString)" strokeWidth={1.5} />
+          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="url(#metalString)" strokeWidth={1.1} />
         </g>
 
         {/* String labels left of nut */}
         {["E", "A", "D", "G", "B", "e"].map((label, i) => (
           <text
             key={i}
-            x={padLeft - 14}
-            y={stringY(i) + 3}
+            x={padLeft - 16}
+            y={stringY(i) + 4}
             textAnchor="end"
-            fontSize={10}
+            fontSize={13}
             fill="#6b5b4a"
             fontFamily="'Fraunces', serif"
             fontStyle="italic"
@@ -409,9 +411,9 @@ export function InteractiveFretboard({
               <g key={i} onClick={() => setString(i, 0)} style={{ cursor: "pointer" }}>
                 <text
                   x={30}
-                  y={y + 4}
+                  y={y + 5}
                   textAnchor="middle"
-                  fontSize={13}
+                  fontSize={18}
                   fill="#6b1f2e"
                   fontWeight={700}
                   fontFamily="'Fraunces', serif"
@@ -433,17 +435,17 @@ export function InteractiveFretboard({
                 <circle
                   cx={30}
                   cy={y}
-                  r={7}
+                  r={11}
                   fill={fillColor}
                   stroke="#1a0f08"
-                  strokeWidth={1.4}
+                  strokeWidth={1.8}
                 />
                 {colorByInterval && iv && (
                   <text
                     x={30}
-                    y={y + 3}
+                    y={y + 4}
                     textAnchor="middle"
-                    fontSize={iv.length > 1 ? 7 : 8}
+                    fontSize={iv.length > 1 ? 9 : 11}
                     fill="#fbf4e3"
                     fontWeight={700}
                     fontFamily="'Fraunces', serif"
@@ -490,10 +492,10 @@ export function InteractiveFretboard({
                   key={`ghost-${sIdx}-${fIdx}`}
                   cx={cx}
                   cy={cy}
-                  r={8}
+                  r={12}
                   fill={isRoot ? "#b7410e" : "#fbf4e3"}
                   stroke={isRoot ? "#1a0f08" : "#8a7560"}
-                  strokeWidth={1}
+                  strokeWidth={1.2}
                   opacity={0.55}
                   pointerEvents="none"
                 />
@@ -549,11 +551,11 @@ export function InteractiveFretboard({
           const opacity =
             guideTonesMode && intervalLabel && !isGuideTone && !isRoot ? 0.28 : 1;
 
-          const radius = isRoot ? 12 : 11;
+          const radius = isRoot ? 18 : 17;
           const pc = cellPC(i, f);
           const noteName = NOTE_NAMES_FLAT[pc];
           const label = colorByInterval && intervalLabel ? intervalLabel : noteName;
-          const fontSize = label.length > 1 ? 8.5 : 10;
+          const fontSize = label.length > 1 ? 12 : 14;
 
           return (
             <g key={i} pointerEvents="none" opacity={opacity} filter="url(#dotShadow)">
@@ -563,11 +565,11 @@ export function InteractiveFretboard({
                 r={radius}
                 fill={fillColor}
                 stroke={isRoot ? "#1a0f08" : "#b7410e"}
-                strokeWidth={isRoot ? 2 : 1.6}
+                strokeWidth={isRoot ? 2.4 : 2}
               />
               <text
                 x={cx}
-                y={cy + 3.5}
+                y={cy + 5}
                 textAnchor="middle"
                 fontSize={fontSize}
                 fill="#fbf4e3"
@@ -585,14 +587,14 @@ export function InteractiveFretboard({
           if (f === null || f === undefined || f === 0) return null;
           if (f >= startFret && f <= endFret) return null;
           const direction = f < startFret ? "left" : "right";
-          const x = direction === "left" ? padLeft + 4 : W - padRight - 12;
+          const x = direction === "left" ? padLeft + 6 : W - padRight - 14;
           return (
             <text
               key={`off-${i}`}
               x={x}
-              y={stringY(i) + 3}
+              y={stringY(i) + 4}
               textAnchor={direction === "left" ? "start" : "end"}
-              fontSize={9}
+              fontSize={11}
               fill="#fff8d8"
               fontFamily="'JetBrains Mono', monospace"
               fontWeight={700}
@@ -611,9 +613,9 @@ export function InteractiveFretboard({
             <text
               key={`fnum-${absFret}`}
               x={cx}
-              y={H - 16}
+              y={H - 14}
               textAnchor="middle"
-              fontSize={9}
+              fontSize={11}
               fill="#6b5b4a"
               fontFamily="'JetBrains Mono', monospace"
               pointerEvents="none"
