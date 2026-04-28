@@ -33,21 +33,18 @@ export function InteractiveFretboard({
   guideTonesMode = false,
 }) {
   const NUM_VISIBLE = 5;
-  const MAX_START = 20; // can scroll up to fret 24 (start 20 + 5 visible - 1)
+  const MAX_START = 20;
   const endFret = startFret + NUM_VISIBLE - 1;
 
-  // Layout — viewBox aspect ratio drives the rendered size. Wider H relative
-  // to W means the SVG renders TALLER when stretched to a fixed container
-  // width. This makes everything (frets, strings, dots, fonts) bigger.
-  // Current: 600 × 360 → roughly 5:3, gives a ~660px tall fretboard at 1100px wide.
+  // Layout — viewBox at 600×440 (~3:2.2) renders ~800px tall at full width.
   const W = 600;
-  const H = 360;
-  const padLeft = 70;       // includes nut + open-string column
-  const padRight = 30;
-  const neckTop = 38;
-  const neckBottom = 308;
+  const H = 440;
+  const padLeft = 76;
+  const padRight = 32;
+  const neckTop = 44;
+  const neckBottom = 388;
   const neckH = neckBottom - neckTop;
-  const stringGap = neckH / 6.2;  // 6 strings, slightly tighter than 6 gaps
+  const stringGap = neckH / 6.2;
   const stringTop = neckTop + stringGap * 1.0;
 
   // Compute the visible fret window’s positions.
@@ -215,24 +212,24 @@ export function InteractiveFretboard({
       >
         <defs>
           <radialGradient id="rosewood" cx="0.5" cy="0.5" r="0.7">
-            <stop offset="0" stopColor="#5a3a22" />
-            <stop offset="0.6" stopColor="#3d2614" />
-            <stop offset="1" stopColor="#22130a" />
+            <stop offset="0" stopColor="#8a5a36" />
+            <stop offset="0.6" stopColor="#6a4226" />
+            <stop offset="1" stopColor="#3d2614" />
           </radialGradient>
           <linearGradient id="metalString" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#fff8e0" />
-            <stop offset="0.5" stopColor="#d4b88a" />
-            <stop offset="1" stopColor="#8b6e3f" />
+            <stop offset="0" stopColor="#fffbe8" />
+            <stop offset="0.5" stopColor="#f0d8a0" />
+            <stop offset="1" stopColor="#b8965e" />
           </linearGradient>
           <linearGradient id="bassString" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#c8b088" />
-            <stop offset="0.5" stopColor="#7a6240" />
-            <stop offset="1" stopColor="#3d2e18" />
+            <stop offset="0" stopColor="#f0d8a8" />
+            <stop offset="0.5" stopColor="#b89868" />
+            <stop offset="1" stopColor="#6e5634" />
           </linearGradient>
           <linearGradient id="brassFret" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#fff0c0" />
-            <stop offset="0.4" stopColor="#d4af6e" />
-            <stop offset="1" stopColor="#8a6a3a" />
+            <stop offset="0" stopColor="#fff4cc" />
+            <stop offset="0.4" stopColor="#e0bc7a" />
+            <stop offset="1" stopColor="#9a7a44" />
           </linearGradient>
           <filter id="dotShadow">
             <feGaussianBlur in="SourceAlpha" stdDeviation="0.7" />
@@ -338,8 +335,8 @@ export function InteractiveFretboard({
           const x = fretX(absFret);
           return (
             <g key={absFret} pointerEvents="none">
-              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="#3a2510" strokeWidth={3.2} />
-              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="url(#brassFret)" strokeWidth={2.2} />
+              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="#3a2510" strokeWidth={4.5} />
+              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="url(#brassFret)" strokeWidth={3} />
             </g>
           );
         })}
@@ -372,12 +369,12 @@ export function InteractiveFretboard({
 
         {/* Strings (with shadow) */}
         <g filter="url(#stringShadow)" pointerEvents="none">
-          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={3.4} />
-          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={2.9} />
-          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={2.4} />
-          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="url(#metalString)" strokeWidth={1.9} />
-          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="url(#metalString)" strokeWidth={1.5} />
-          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="url(#metalString)" strokeWidth={1.1} />
+          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={5.2} />
+          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={4.4} />
+          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={3.6} />
+          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="url(#metalString)" strokeWidth={2.8} />
+          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="url(#metalString)" strokeWidth={2.2} />
+          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="url(#metalString)" strokeWidth={1.6} />
         </g>
 
         {/* String labels left of nut */}
@@ -553,11 +550,11 @@ export function InteractiveFretboard({
           const opacity =
             guideTonesMode && intervalLabel && !isGuideTone && !isRoot ? 0.28 : 1;
 
-          const radius = isRoot ? 18 : 17;
+          const radius = isRoot ? 24 : 22;
           const pc = cellPC(i, f);
           const noteName = NOTE_NAMES_FLAT[pc];
           const label = colorByInterval && intervalLabel ? intervalLabel : noteName;
-          const fontSize = label.length > 1 ? 12 : 14;
+          const fontSize = label.length > 1 ? 16 : 18;
 
           return (
             <g key={i} pointerEvents="none" opacity={opacity} filter="url(#dotShadow)">
@@ -571,7 +568,7 @@ export function InteractiveFretboard({
               />
               <text
                 x={cx}
-                y={cy + 5}
+                y={cy + 6.5}
                 textAnchor="middle"
                 fontSize={fontSize}
                 fill="#fbf4e3"
