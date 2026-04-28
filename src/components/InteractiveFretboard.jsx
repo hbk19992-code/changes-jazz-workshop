@@ -1,7 +1,8 @@
-// The tappable fretboard.
-// Click/tap a cell to toggle a note. Drag the empty neck area to shift
-// position. Mouse wheel and ↑/↓ buttons also shift position.
-// When coloring is on, each dot shows its chord-function role (R, 3, ♭7…).
+// Realistic horizontal fretboard. Looks like a slice of an actual guitar
+// neck, with rosewood, brass frets, pearl inlays, and shadowed strings.
+//
+// Click/tap a cell to toggle. Drag horizontally or use the wheel to shift
+// the visible window. ↑/↓ arrow buttons + position-jump chips also work.
 
 import { useRef, useEffect } from "react";
 import {
@@ -12,6 +13,12 @@ import {
 } from "../constants.js";
 
 const NOTE_NAMES_FLAT = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+
+// Equal-tempered fret distances. fret n sits at scale * (1 - 1/2^(n/12))
+// We pre-compute relative positions for frets 1..24 along a unit-length neck.
+const FRET_POSITIONS_UNIT = Array.from({ length: 25 }, (_, n) =>
+  n === 0 ? 0 : 1 - Math.pow(2, -n / 12)
+);
 
 export function InteractiveFretboard({
   frets,
@@ -25,74 +32,91 @@ export function InteractiveFretboard({
   colorByInterval = false,
   guideTonesMode = false,
 }) {
-  const NUM_VISIBLE = 8;
-  const MAX_START = 17;
+  const NUM_VISIBLE = 12;
+  const MAX_START = 13; // can scroll up to fret 24 (start 13 + 12 visible)
   const endFret = startFret + NUM_VISIBLE - 1;
 
-  // Larger canvas → easier desktop click targets
-  const W = 360;
-  const padLeft = 44;
-  const padRight = 28;
-  const topMute = 18;
-  const topOpen = 44;
-  const neckTop = 78;
-  const fretHeight = 50;
-  const stringGap = (W - padLeft - padRight) / 5;
-  const neckBottom = neckTop + NUM_VISIBLE * fretHeight;
-  const H = neckBottom + 28;
+  // Layout — designed for a 16:6 aspect ratio (matches the mockup)
+  const W = 1000;
+  const H = 160;
+  const padLeft = 60;       // includes nut + open-string column
+  const padRight = 40;
+  const neckTop = 22;
+  const neckBottom = 122;
+  const neckH = neckBottom - neckTop;
+  const stringGap = neckH / 7; // 7 gaps for visual spacing
+  const stringTop = neckTop + stringGap * 0.95;
 
-  const stringX = (i) => padLeft + i * stringGap;
+  // Compute the visible fret window’s positions.
+  // We treat the visible window as one “scale-length unit” but offset by the
+  // starting fret’s position. Multiplying by a scale factor stretches it
+  // across the available width. This gives realistic narrowing.
+  const visibleW = W - padLeft - padRight;
+  const fromUnit = FRET_POSITIONS_UNIT[startFret - 1];
+  const toUnit = FRET_POSITIONS_UNIT[startFret + NUM_VISIBLE - 1];
+  const unitSpan = toUnit - fromUnit;
 
-  // Drag state in a ref so pointer moves don't cause re-renders
+  const fretX = (absFret) => {
+    const u = FRET_POSITIONS_UNIT[absFret];
+    return padLeft + ((u - fromUnit) / unitSpan) * visibleW;
+  };
+
+  // String Y position (low E top, high e bottom)
+  const stringY = (i) => stringTop + i * stringGap;
+
+  // Note dot is centered between (fret-1) and (fret) lines
+  const dotX = (absFret) => {
+    if (absFret === 0) return padLeft - 36; // open string column left of nut
+    const x1 = absFret === 1 ? padLeft + 6 : fretX(absFret - 1);
+    const x2 = fretX(absFret);
+    return (x1 + x2) / 2;
+  };
+
+  // –– Drag state ––
   const dragRef = useRef({
     active: false,
-    startY: 0,
     startX: 0,
+    startY: 0,
     startFret: 1,
     moved: false,
-    pointerId: null,
   });
   const svgRef = useRef(null);
-
-  // Pixel threshold before a touch counts as a drag rather than a tap.
-  // Smaller = more responsive but more false drags. 6px feels right on iOS.
   const DRAG_THRESHOLD = 6;
+  const DRAG_PIXELS_PER_FRET = 36; // horizontal drag — about one finger width
 
-  // Wheel scrolling — natural for desktop
+  // –– Wheel scroll (both horizontal and vertical wheels move position) ––
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
     const onWheel = (e) => {
       e.preventDefault();
-      const dir = e.deltaY > 0 ? 1 : -1;
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const dir = delta > 0 ? 1 : -1;
       setStartFret((prev) => Math.max(1, Math.min(MAX_START, prev + dir)));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [setStartFret]);
 
-  // Drag handlers — used by both the empty-neck background AND tap zones.
-  // The "moved" flag lets handleFretClick decide whether to swallow the click.
   const startDrag = (e) => {
     dragRef.current = {
       active: true,
-      startY: e.clientY,
       startX: e.clientX,
+      startY: e.clientY,
       startFret,
       moved: false,
-      pointerId: e.pointerId,
     };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const moveDrag = (e) => {
     if (!dragRef.current.active) return;
-    const dy = e.clientY - dragRef.current.startY;
     const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance < DRAG_THRESHOLD) return; // not a drag yet, just a hold
-
+    if (distance < DRAG_THRESHOLD) return;
     dragRef.current.moved = true;
-    const fretDelta = Math.round(-dy / 32);
+    // Drag right → reveal lower frets (move backward); drag left → higher frets
+    const fretDelta = Math.round(-dx / DRAG_PIXELS_PER_FRET);
     const next = Math.max(
       1,
       Math.min(MAX_START, dragRef.current.startFret + fretDelta)
@@ -104,6 +128,7 @@ export function InteractiveFretboard({
     e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
 
+  // –– Note placement ––
   const setString = (i, val) => {
     const next = [...frets];
     next[i] = val;
@@ -134,252 +159,319 @@ export function InteractiveFretboard({
     { label: "7fr", fret: 7 },
     { label: "9fr", fret: 9 },
     { label: "12fr", fret: 12 },
-    { label: "15fr", fret: 15 },
   ];
 
   return (
-    <div className="flex flex-col items-center select-none">
-      {/* Position controls */}
-      <div className="flex items-center gap-2 mb-2">
-        <button
-          onClick={() => setStartFret(Math.max(1, startFret - 1))}
-          disabled={startFret <= 1}
-          className="w-9 h-9 border border-[#1a0f08] bg-[#fbf4e3] hover:bg-[#ead79f] active:bg-[#d9c299] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-base font-semibold"
-          style={{ fontFamily: "'Fraunces', serif" }}
-          title="한 칸 위로"
-        >↑</button>
-        <span
-          className="tracking-widest text-[#6b5b4a] italic min-w-[88px] text-center text-sm"
-          style={{ fontFamily: "'Fraunces', serif" }}
-        >
-          {startFret}–{endFret} fr
-        </span>
-        <button
-          onClick={() => setStartFret(Math.min(MAX_START, startFret + 1))}
-          disabled={startFret >= MAX_START}
-          className="w-9 h-9 border border-[#1a0f08] bg-[#fbf4e3] hover:bg-[#ead79f] active:bg-[#d9c299] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-base font-semibold"
-          style={{ fontFamily: "'Fraunces', serif" }}
-          title="한 칸 아래로"
-        >↓</button>
-      </div>
-
-      {/* Quick position jumps */}
-      <div className="flex items-center gap-1 mb-2 flex-wrap justify-center">
-        {positions.map((p) => (
+    <div className="flex flex-col items-stretch select-none w-full">
+      {/* Top control row */}
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div className="flex items-center gap-1">
           <button
-            key={p.fret}
-            onClick={() => setStartFret(p.fret)}
-            className={`px-2 py-0.5 text-[10px] tracking-widest uppercase border transition-colors ${
-              startFret === p.fret
-                ? "bg-[#1a0f08] text-[#fbf4e3] border-[#1a0f08]"
-                : "bg-transparent border-[#1a0f08]/30 hover:border-[#1a0f08] text-[#6b5b4a]"
-            }`}
+            onClick={() => setStartFret(Math.max(1, startFret - 1))}
+            disabled={startFret <= 1}
+            className="w-8 h-8 border border-[#1a0f08] bg-[#fbf4e3] hover:bg-[#ead79f] active:bg-[#d9c299] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            style={{ fontFamily: "'Fraunces', serif" }}
+          >←</button>
+          <span
+            className="tracking-widest text-[#6b5b4a] italic min-w-[78px] text-center text-xs"
             style={{ fontFamily: "'Fraunces', serif" }}
           >
-            {p.label}
-          </button>
-        ))}
+            {startFret}–{endFret} fr
+          </span>
+          <button
+            onClick={() => setStartFret(Math.min(MAX_START, startFret + 1))}
+            disabled={startFret >= MAX_START}
+            className="w-8 h-8 border border-[#1a0f08] bg-[#fbf4e3] hover:bg-[#ead79f] active:bg-[#d9c299] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            style={{ fontFamily: "'Fraunces', serif" }}
+          >→</button>
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          {positions.map((p) => (
+            <button
+              key={p.fret}
+              onClick={() => setStartFret(p.fret)}
+              className={`px-2 py-0.5 text-[10px] tracking-widest uppercase border transition-colors ${ startFret === p.fret ? "bg-[#1a0f08] text-[#fbf4e3] border-[#1a0f08]" : "bg-transparent border-[#1a0f08]/30 hover:border-[#1a0f08] text-[#6b5b4a]" }`}
+              style={{ fontFamily: "'Fraunces', serif" }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <p className="text-[9px] tracking-[0.25em] uppercase text-[#8a7560] mb-1 italic">
-        탭/클릭으로 음 추가 · 위아래로 끌어 이동 · 휠 스크롤
+      <p className="text-[9px] tracking-[0.25em] uppercase text-[#8a7560] mb-2 italic text-center">
+        탭/클릭으로 음 추가 · 좌우로 끌어 이동 · 휠 스크롤
       </p>
 
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full max-w-[420px]"
-        style={{ touchAction: "none" }}
+        className="w-full"
+        style={{ touchAction: "none", userSelect: "none" }}
       >
-        {/* String labels */}
-        {["E", "A", "D", "G", "B", "e"].map((label, i) => (
-          <text
-            key={i}
-            x={stringX(i)}
-            y={11}
-            textAnchor="middle"
-            fontSize={11}
-            fill="#8a7560"
-            fontFamily="'Fraunces', serif"
-            fontStyle="italic"
-          >
-            {label}
-          </text>
-        ))}
+        <defs>
+          <radialGradient id="rosewood" cx="0.5" cy="0.5" r="0.7">
+            <stop offset="0" stopColor="#5a3a22" />
+            <stop offset="0.6" stopColor="#3d2614" />
+            <stop offset="1" stopColor="#22130a" />
+          </radialGradient>
+          <linearGradient id="metalString" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fff8e0" />
+            <stop offset="0.5" stopColor="#d4b88a" />
+            <stop offset="1" stopColor="#8b6e3f" />
+          </linearGradient>
+          <linearGradient id="bassString" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#c8b088" />
+            <stop offset="0.5" stopColor="#7a6240" />
+            <stop offset="1" stopColor="#3d2e18" />
+          </linearGradient>
+          <linearGradient id="brassFret" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fff0c0" />
+            <stop offset="0.4" stopColor="#d4af6e" />
+            <stop offset="1" stopColor="#8a6a3a" />
+          </linearGradient>
+          <filter id="dotShadow">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="0.7" />
+            <feOffset dx="0" dy="1.5" />
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.55" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="stringShadow">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="0.4" />
+            <feOffset dx="0" dy="1" />
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.5" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
 
-        {/* Mute / Open toggles */}
-        {[0, 1, 2, 3, 4, 5].map((i) => {
-          const val = frets[i];
-          const isMuted = val === null || val === undefined;
-          const isOpen = val === 0;
-          const x = stringX(i);
-          const openKey = `${i}-0`;
-          const iv = chordIntervals?.get?.(openKey) || null;
-          const openFill =
-            isOpen && colorByInterval && iv
-              ? INTERVAL_COLORS[iv] || "#b7410e"
-              : isOpen
-              ? "#b7410e"
-              : "transparent";
-
-          return (
-            <g key={i}>
-              <g onClick={() => setString(i, null)} style={{ cursor: "pointer" }}>
-                <rect
-                  x={x - 13}
-                  y={topMute - 9}
-                  width={26}
-                  height={18}
-                  fill={isMuted ? "#1a0f08" : "transparent"}
-                  stroke="#1a0f08"
-                  strokeWidth={1}
-                />
-                <text
-                  x={x}
-                  y={topMute + 5}
-                  textAnchor="middle"
-                  fontSize={13}
-                  fontWeight={700}
-                  fill={isMuted ? "#f2e8d5" : "#1a0f08"}
-                  fontFamily="'Fraunces', serif"
-                  pointerEvents="none"
-                >×</text>
-              </g>
-              <g onClick={() => setString(i, 0)} style={{ cursor: "pointer" }}>
-                <rect
-                  x={x - 13}
-                  y={topOpen - 9}
-                  width={26}
-                  height={18}
-                  fill={openFill}
-                  stroke="#1a0f08"
-                  strokeWidth={1}
-                />
-                <text
-                  x={x}
-                  y={topOpen + 5}
-                  textAnchor="middle"
-                  fontSize={isOpen && colorByInterval && iv ? 10 : 12}
-                  fontWeight={700}
-                  fill={isOpen ? "#fbf4e3" : "#1a0f08"}
-                  fontFamily="'Fraunces', serif"
-                  pointerEvents="none"
-                >
-                  {isOpen && colorByInterval && iv ? iv : "○"}
-                </text>
-              </g>
-            </g>
-          );
-        })}
-
-        {/* Drag-scroll background — invisible, behind tap zones */}
+        {/* Drag/scroll background catches all pointer events not on tap zones */}
         <rect
           x={padLeft}
           y={neckTop}
-          width={stringGap * 5}
-          height={NUM_VISIBLE * fretHeight}
+          width={W - padLeft - padRight}
+          height={neckH}
           fill="transparent"
           onPointerDown={startDrag}
           onPointerMove={moveDrag}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          onPointerLeave={endDrag}
           style={{ cursor: "grab" }}
         />
 
-        {/* Nut */}
+        {/* Fingerboard */}
+        <rect
+          x={padLeft}
+          y={neckTop}
+          width={W - padLeft - padRight}
+          height={neckH}
+          fill="url(#rosewood)"
+          rx="2"
+          pointerEvents="none"
+        />
+
+        {/* Wood grain streaks */}
+        <g opacity={0.35} pointerEvents="none">
+          {[0.18, 0.42, 0.66, 0.86].map((yFrac, i) => {
+            const yLine = neckTop + neckH * yFrac;
+            return (
+              <path
+                key={i}
+                d={`M${padLeft},${yLine} Q${padLeft + visibleW / 3},${yLine - 1} ${
+                  padLeft + visibleW / 2
+                },${yLine + 1} T${W - padRight},${yLine}`}
+                stroke={i % 2 ? "#2a160a" : "#1a0d05"}
+                strokeWidth={0.5}
+                fill="none"
+              />
+            );
+          })}
+        </g>
+
+        {/* Nut (only when at the start of the neck) */}
         {startFret === 1 && (
-          <rect
-            x={padLeft - 3}
-            y={neckTop - 5}
-            width={stringGap * 5 + 6}
-            height={5}
-            fill="#1a0f08"
-          />
+          <g pointerEvents="none">
+            <rect
+              x={padLeft - 1}
+              y={neckTop - 2}
+              width={6}
+              height={neckH + 4}
+              fill="#f8efd4"
+              stroke="#1a0f08"
+              strokeWidth={0.6}
+            />
+            <rect x={padLeft} y={neckTop - 1} width={1.5} height={neckH + 2} fill="#fffbe8" opacity={0.6} />
+          </g>
         )}
         {startFret > 1 && (
           <text
-            x={padLeft - 12}
-            y={neckTop + fretHeight / 2 + 4}
+            x={padLeft - 8}
+            y={neckTop + neckH / 2 + 4}
             textAnchor="end"
-            fontSize={13}
+            fontSize={11}
             fill="#6b5b4a"
             fontFamily="'Fraunces', serif"
             fontStyle="italic"
             fontWeight={600}
-          >{startFret}fr</text>
+            pointerEvents="none"
+          >
+            {startFret}fr
+          </text>
         )}
 
-        {/* Fret lines */}
-        {Array.from({ length: NUM_VISIBLE + 1 }).map((_, i) => (
-          <line
-            key={i}
-            x1={padLeft}
-            y1={neckTop + i * fretHeight}
-            x2={padLeft + stringGap * 5}
-            y2={neckTop + i * fretHeight}
-            stroke="#8a7560"
-            strokeWidth={i === 0 && startFret === 1 ? 0 : 1.2}
-          />
-        ))}
-
-        {/* Fret numbers down the right side */}
+        {/* Frets */}
         {Array.from({ length: NUM_VISIBLE }).map((_, i) => {
           const absFret = startFret + i;
+          const x = fretX(absFret);
           return (
-            <text
-              key={`fnum-${i}`}
-              x={W - padRight + 6}
-              y={neckTop + i * fretHeight + fretHeight / 2 + 4}
-              textAnchor="start"
-              fontSize={9}
-              fill="#8a7560"
-              fontFamily="'JetBrains Mono', monospace"
-            >
-              {absFret}
-            </text>
+            <g key={absFret} pointerEvents="none">
+              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="#3a2510" strokeWidth={2.4} />
+              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="url(#brassFret)" strokeWidth={1.6} />
+            </g>
           );
         })}
 
-        {/* Position inlays */}
+        {/* Pearl inlays */}
         {Array.from({ length: NUM_VISIBLE }).map((_, i) => {
           const absFret = startFret + i;
-          const cy = neckTop + i * fretHeight + fretHeight / 2;
+          const cx = dotX(absFret);
+          const cy = neckTop + neckH / 2;
           if (doubleInlayFrets.has(absFret)) {
             return (
-              <g key={i} opacity={0.4}>
-                <circle cx={padLeft + stringGap * 1.5} cy={cy} r={5} fill="#1a0f08" />
-                <circle cx={padLeft + stringGap * 3.5} cy={cy} r={5} fill="#1a0f08" />
+              <g key={absFret} pointerEvents="none">
+                <circle cx={cx} cy={neckTop + neckH * 0.3} r={5} fill="#e8dcbe" />
+                <circle cx={cx - 1} cy={neckTop + neckH * 0.3 - 2} r={1.3} fill="#fffce8" opacity={0.7} />
+                <circle cx={cx} cy={neckTop + neckH * 0.7} r={5} fill="#e8dcbe" />
+                <circle cx={cx - 1} cy={neckTop + neckH * 0.7 - 2} r={1.3} fill="#fffce8" opacity={0.7} />
               </g>
             );
           }
           if (inlayFrets.has(absFret)) {
             return (
-              <circle
-                key={i}
-                cx={padLeft + stringGap * 2.5}
-                cy={cy}
-                r={5}
-                fill="#1a0f08"
-                opacity={0.35}
-              />
+              <g key={absFret} pointerEvents="none">
+                <circle cx={cx} cy={cy} r={5.5} fill="#e8dcbe" />
+                <circle cx={cx - 1} cy={cy - 2} r={1.5} fill="#fffce8" opacity={0.7} />
+              </g>
             );
           }
           return null;
         })}
 
-        {/* Strings */}
-        {Array.from({ length: 6 }).map((_, i) => (
-          <line
+        {/* Strings (with shadow) */}
+        <g filter="url(#stringShadow)" pointerEvents="none">
+          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={2.6} />
+          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={2.2} />
+          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={1.9} />
+          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="url(#metalString)" strokeWidth={1.5} />
+          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="url(#metalString)" strokeWidth={1.2} />
+          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="url(#metalString)" strokeWidth={0.9} />
+        </g>
+
+        {/* String labels left of nut */}
+        {["E", "A", "D", "G", "B", "e"].map((label, i) => (
+          <text
             key={i}
-            x1={stringX(i)}
-            y1={neckTop}
-            x2={stringX(i)}
-            y2={neckBottom}
-            stroke="#8a7560"
-            strokeWidth={i < 3 ? 1.8 : 1.1}
-          />
+            x={padLeft - 14}
+            y={stringY(i) + 3}
+            textAnchor="end"
+            fontSize={10}
+            fill="#6b5b4a"
+            fontFamily="'Fraunces', serif"
+            fontStyle="italic"
+            pointerEvents="none"
+          >
+            {label}
+          </text>
         ))}
+
+        {/* Mute (×) and Open (○) toggles in left margin */}
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const val = frets[i];
+          const isMuted = val === null || val === undefined;
+          const isOpen = val === 0;
+          const y = stringY(i);
+          const openKey = `${i}-0`;
+          const iv = chordIntervals?.get?.(openKey) || null;
+
+          // Single column at x=30 — toggles between × ↔ ○ ↔ blank
+          // Click cycles; for clarity we show the active state as a colored circle/×
+          if (isMuted) {
+            return (
+              <g key={i} onClick={() => setString(i, 0)} style={{ cursor: "pointer" }}>
+                <text
+                  x={30}
+                  y={y + 4}
+                  textAnchor="middle"
+                  fontSize={13}
+                  fill="#6b1f2e"
+                  fontWeight={700}
+                  fontFamily="'Fraunces', serif"
+                >
+                  ×
+                </text>
+                {/* Hidden right-click target to toggle to muted via tap */}
+                <rect x={20} y={y - 9} width={20} height={18} fill="transparent" />
+              </g>
+            );
+          }
+          if (isOpen) {
+            const fillColor =
+              colorByInterval && iv
+                ? INTERVAL_COLORS[iv] || "#b7410e"
+                : "transparent";
+            return (
+              <g key={i} onClick={() => setString(i, null)} style={{ cursor: "pointer" }}>
+                <circle
+                  cx={30}
+                  cy={y}
+                  r={7}
+                  fill={fillColor}
+                  stroke="#1a0f08"
+                  strokeWidth={1.4}
+                />
+                {colorByInterval && iv && (
+                  <text
+                    x={30}
+                    y={y + 3}
+                    textAnchor="middle"
+                    fontSize={iv.length > 1 ? 7 : 8}
+                    fill="#fbf4e3"
+                    fontWeight={700}
+                    fontFamily="'Fraunces', serif"
+                  >
+                    {iv}
+                  </text>
+                )}
+              </g>
+            );
+          }
+          // Fretted — show small × that lets the user mute again
+          return (
+            <g key={i} onClick={() => setString(i, null)} style={{ cursor: "pointer" }}>
+              <text
+                x={30}
+                y={y + 4}
+                textAnchor="middle"
+                fontSize={11}
+                fill="#8a7560"
+                fontFamily="'Fraunces', serif"
+                opacity={0.5}
+              >
+                ×
+              </text>
+              <rect x={20} y={y - 9} width={20} height={18} fill="transparent" />
+            </g>
+          );
+        })}
 
         {/* Diatonic ghost dots */}
         {diatonicMode &&
@@ -390,14 +482,15 @@ export function InteractiveFretboard({
               const pc = cellPC(sIdx, absFret);
               if (!highlights.has(pc)) return null;
               if (frets[sIdx] === absFret) return null;
-              const cy = neckTop + fIdx * fretHeight + fretHeight / 2;
+              const cx = dotX(absFret);
+              const cy = stringY(sIdx);
               const isRoot = highlights.rootPC === pc;
               return (
                 <circle
                   key={`ghost-${sIdx}-${fIdx}`}
-                  cx={stringX(sIdx)}
+                  cx={cx}
                   cy={cy}
-                  r={10}
+                  r={8}
                   fill={isRoot ? "#b7410e" : "#fbf4e3"}
                   stroke={isRoot ? "#1a0f08" : "#8a7560"}
                   strokeWidth={1}
@@ -408,33 +501,40 @@ export function InteractiveFretboard({
             })
           )}
 
-        {/* Tap zones — handle both clicks AND drags so the fretboard can be
-            scrolled by dragging anywhere, not just empty space */}
+        {/* Tap zones — invisible per-cell click targets that ALSO accept drag */}
         {Array.from({ length: 6 }).flatMap((_, sIdx) =>
-          Array.from({ length: NUM_VISIBLE }).map((_, fIdx) => (
-            <rect
-              key={`cell-${sIdx}-${fIdx}`}
-              x={stringX(sIdx) - stringGap / 2}
-              y={neckTop + fIdx * fretHeight}
-              width={stringGap}
-              height={fretHeight}
-              fill="transparent"
-              onPointerDown={startDrag}
-              onPointerMove={moveDrag}
-              onPointerUp={endDrag}
-              onPointerCancel={endDrag}
-              onClick={() => handleFretClick(sIdx, startFret + fIdx)}
-              style={{ cursor: "pointer", touchAction: "none" }}
-            />
-          ))
+          Array.from({ length: NUM_VISIBLE }).map((_, fIdx) => {
+            const absFret = startFret + fIdx;
+            const cellLeft = absFret === startFret
+              ? (startFret === 1 ? padLeft + 5 : padLeft)
+              : fretX(absFret - 1);
+            const cellRight = fretX(absFret);
+            const cellW = Math.max(0, cellRight - cellLeft);
+            return (
+              <rect
+                key={`cell-${sIdx}-${fIdx}`}
+                x={cellLeft}
+                y={stringY(sIdx) - stringGap / 2}
+                width={cellW}
+                height={stringGap}
+                fill="transparent"
+                onPointerDown={startDrag}
+                onPointerMove={moveDrag}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                onClick={() => handleFretClick(sIdx, absFret)}
+                style={{ cursor: "pointer", touchAction: "none" }}
+              />
+            );
+          })
         )}
 
-        {/* Placed dots */}
+        {/* Placed dots — fretted notes (skip 0 = open, drawn in left margin) */}
         {frets.map((f, i) => {
-          if (f === null || f === undefined) return null;
-          if (f === 0) return null;
+          if (f === null || f === undefined || f === 0) return null;
           if (f < startFret || f > endFret) return null;
-          const cy = neckTop + (f - startFret) * fretHeight + fretHeight / 2;
+          const cx = dotX(f);
+          const cy = stringY(i);
 
           const key = `${i}-${f}`;
           const intervalLabel = chordIntervals?.get?.(key) || null;
@@ -445,32 +545,36 @@ export function InteractiveFretboard({
             colorByInterval && intervalLabel
               ? INTERVAL_COLORS[intervalLabel] || "#1a0f08"
               : "#1a0f08";
+
           const opacity =
             guideTonesMode && intervalLabel && !isGuideTone && !isRoot ? 0.28 : 1;
-          const radius = isRoot ? 16 : 15;
+
+          const radius = isRoot ? 12 : 11;
           const pc = cellPC(i, f);
           const noteName = NOTE_NAMES_FLAT[pc];
+          const label = colorByInterval && intervalLabel ? intervalLabel : noteName;
+          const fontSize = label.length > 1 ? 8.5 : 10;
 
           return (
-            <g key={i} pointerEvents="none" opacity={opacity}>
+            <g key={i} pointerEvents="none" opacity={opacity} filter="url(#dotShadow)">
               <circle
-                cx={stringX(i)}
+                cx={cx}
                 cy={cy}
                 r={radius}
                 fill={fillColor}
                 stroke={isRoot ? "#1a0f08" : "#b7410e"}
-                strokeWidth={isRoot ? 2.4 : 1.6}
+                strokeWidth={isRoot ? 2 : 1.6}
               />
               <text
-                x={stringX(i)}
-                y={cy + 4}
+                x={cx}
+                y={cy + 3.5}
                 textAnchor="middle"
-                fontSize={11}
-                fill="#f2e8d5"
+                fontSize={fontSize}
+                fill="#fbf4e3"
                 fontFamily="'Fraunces', serif"
                 fontWeight={700}
               >
-                {intervalLabel && colorByInterval ? intervalLabel : noteName}
+                {label}
               </text>
             </g>
           );
@@ -480,20 +584,41 @@ export function InteractiveFretboard({
         {frets.map((f, i) => {
           if (f === null || f === undefined || f === 0) return null;
           if (f >= startFret && f <= endFret) return null;
-          const direction = f < startFret ? "up" : "down";
-          const y = direction === "up" ? neckTop - 3 : neckBottom + 14;
+          const direction = f < startFret ? "left" : "right";
+          const x = direction === "left" ? padLeft + 4 : W - padRight - 12;
           return (
             <text
               key={`off-${i}`}
-              x={stringX(i)}
-              y={y}
-              textAnchor="middle"
-              fontSize={10}
-              fill="#b7410e"
+              x={x}
+              y={stringY(i) + 3}
+              textAnchor={direction === "left" ? "start" : "end"}
+              fontSize={9}
+              fill="#fff8d8"
               fontFamily="'JetBrains Mono', monospace"
               fontWeight={700}
+              pointerEvents="none"
             >
-              {direction === "up" ? `↑${f}` : `↓${f}`}
+              {direction === "left" ? `←${f}` : `${f}→`}
+            </text>
+          );
+        })}
+
+        {/* Fret numbers below */}
+        {Array.from({ length: NUM_VISIBLE }).map((_, i) => {
+          const absFret = startFret + i;
+          const cx = dotX(absFret);
+          return (
+            <text
+              key={`fnum-${absFret}`}
+              x={cx}
+              y={H - 16}
+              textAnchor="middle"
+              fontSize={9}
+              fill="#6b5b4a"
+              fontFamily="'JetBrains Mono', monospace"
+              pointerEvents="none"
+            >
+              {absFret}
             </text>
           );
         })}
