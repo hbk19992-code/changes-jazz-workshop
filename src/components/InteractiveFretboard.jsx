@@ -246,17 +246,6 @@ export function InteractiveFretboard({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="stringShadow">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="0.4" />
-            <feOffset dx="0" dy="1" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.5" />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
 
         {/* Drag/scroll background catches all pointer events not on tap zones */}
@@ -333,14 +322,14 @@ export function InteractiveFretboard({
           </text>
         )}
 
-        {/* Frets */}
+        {/* Frets (Safari Bug Fix: line 대신 rect 사용) */}
         {Array.from({ length: NUM_VISIBLE }).map((_, i) => {
           const absFret = startFret + i;
           const x = fretX(absFret);
           return (
             <g key={absFret} pointerEvents="none">
-              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="#3a2510" strokeWidth={4.5} />
-              <line x1={x} y1={neckTop} x2={x} y2={neckBottom} stroke="url(#brassFret)" strokeWidth={3} />
+              <rect x={x - 2.25} y={neckTop} width={4.5} height={neckH} fill="#3a2510" />
+              <rect x={x - 1.5} y={neckTop} width={3} height={neckH} fill="url(#brassFret)" />
             </g>
           );
         })}
@@ -371,14 +360,42 @@ export function InteractiveFretboard({
           return null;
         })}
 
-        {/* Strings (with shadow) */}
-        <g filter="url(#stringShadow)" pointerEvents="none">
-          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={5.2} />
-          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={4.4} />
-          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={3.6} />
-          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="url(#metalString)" strokeWidth={2.8} />
-          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="url(#metalString)" strokeWidth={2.2} />
-          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="url(#metalString)" strokeWidth={1.6} />
+        {/* Strings Shadows (Safari Bug Fix: line 대신 rect 사용) */}
+        <g pointerEvents="none" opacity={0.4}>
+          {[5.2, 4.4, 3.6, 2.8, 2.2, 1.6].map((sw, i) => (
+            <rect
+              key={`sh-${i}`}
+              x={padLeft}
+              y={stringY(i) - sw / 2 + 1.5}
+              width={visibleW}
+              height={sw}
+              fill="#1a0d05"
+            />
+          ))}
+        </g>
+
+        {/* Actual Strings (Safari Bug Fix: line 대신 rect 사용) */}
+        <g pointerEvents="none">
+          {[5.2, 4.4, 3.6].map((sw, i) => (
+            <rect
+              key={`str-${i}`}
+              x={padLeft}
+              y={stringY(i) - sw / 2}
+              width={visibleW}
+              height={sw}
+              fill="url(#bassString)"
+            />
+          ))}
+          {[2.8, 2.2, 1.6].map((sw, i) => (
+            <rect
+              key={`str-${i + 3}`}
+              x={padLeft}
+              y={stringY(i + 3) - sw / 2}
+              width={visibleW}
+              height={sw}
+              fill="url(#metalString)"
+            />
+          ))}
         </g>
 
         {/* String labels left of nut */}
