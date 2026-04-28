@@ -43,9 +43,20 @@ export function InteractiveFretboard({
 
   const stringX = (i) => padLeft + i * stringGap;
 
-  // Drag state in a ref so pointer moves don’t cause re-renders
-  const dragRef = useRef({ active: false, startY: 0, startFret: 1, moved: false });
+  // Drag state in a ref so pointer moves don't cause re-renders
+  const dragRef = useRef({
+    active: false,
+    startY: 0,
+    startX: 0,
+    startFret: 1,
+    moved: false,
+    pointerId: null,
+  });
   const svgRef = useRef(null);
+
+  // Pixel threshold before a touch counts as a drag rather than a tap.
+  // Smaller = more responsive but more false drags. 6px feels right on iOS.
+  const DRAG_THRESHOLD = 6;
 
   // Wheel scrolling — natural for desktop
   useEffect(() => {
@@ -60,31 +71,38 @@ export function InteractiveFretboard({
     return () => el.removeEventListener("wheel", onWheel);
   }, [setStartFret]);
 
-  // Drag handlers — attached only to the empty-neck background
+  // Drag handlers — used by both the empty-neck background AND tap zones.
+  // The "moved" flag lets handleFretClick decide whether to swallow the click.
   const startDrag = (e) => {
     dragRef.current = {
       active: true,
       startY: e.clientY,
+      startX: e.clientX,
       startFret,
       moved: false,
+      pointerId: e.pointerId,
     };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const moveDrag = (e) => {
     if (!dragRef.current.active) return;
     const dy = e.clientY - dragRef.current.startY;
+    const dx = e.clientX - dragRef.current.startX;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < DRAG_THRESHOLD) return; // not a drag yet, just a hold
+
+    dragRef.current.moved = true;
     const fretDelta = Math.round(-dy / 32);
-    if (fretDelta !== 0) {
-      const next = Math.max(
-        1,
-        Math.min(MAX_START, dragRef.current.startFret + fretDelta)
-      );
-      if (next !== startFret) {
-        setStartFret(next);
-        dragRef.current.moved = true;
-      }
-    }
+    const next = Math.max(
+      1,
+      Math.min(MAX_START, dragRef.current.startFret + fretDelta)
+    );
+    if (next !== startFret) setStartFret(next);
   };
-  const endDrag = () => { dragRef.current.active = false; };
+  const endDrag = (e) => {
+    dragRef.current.active = false;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+  };
 
   const setString = (i, val) => {
     const next = [...frets];
@@ -164,7 +182,7 @@ export function InteractiveFretboard({
       </div>
 
       <p className="text-[9px] tracking-[0.25em] uppercase text-[#8a7560] mb-1 italic">
-        탭/클릭으로 음 추가 · 휠 또는 빈 영역 드래그로 이동
+        탭/클릭으로 음 추가 · 위아래로 끌어 이동 · 휠 스크롤
       </p>
 
       <svg
@@ -390,7 +408,8 @@ export function InteractiveFretboard({
             })
           )}
 
-        {/* Tap zones — sit on top of drag background, intercept clicks */}
+        {/* Tap zones — handle both clicks AND drags so the fretboard can be
+            scrolled by dragging anywhere, not just empty space */}
         {Array.from({ length: 6 }).flatMap((_, sIdx) =>
           Array.from({ length: NUM_VISIBLE }).map((_, fIdx) => (
             <rect
@@ -400,8 +419,12 @@ export function InteractiveFretboard({
               width={stringGap}
               height={fretHeight}
               fill="transparent"
+              onPointerDown={startDrag}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
               onClick={() => handleFretClick(sIdx, startFret + fIdx)}
-              style={{ cursor: "pointer" }}
+              style={{ cursor: "pointer", touchAction: "none" }}
             />
           ))
         )}
