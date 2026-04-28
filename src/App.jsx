@@ -154,7 +154,7 @@ export default function App() {
     return LIBRARY.filter((v) => isInKey(v.frets, diatonicKeyPC, diatonicScale));
   }, [diatonicKeyPC, diatonicScale]);
 
-  // ---- Actions ----
+  // –– Actions ––
 
   const clearAll = () => {
     setFrets([null, null, null, null, null, null]);
@@ -208,8 +208,8 @@ export default function App() {
     alert(`라이브러리에 저장됨 (${sequence.length}개 코드)`);
   };
 
-  // Load a saved progression's chord names into the sequencer.
-  // We can't perfectly reconstruct the original voicings from chord names
+  // Load a saved progression’s chord names into the sequencer.
+  // We can’t perfectly reconstruct the original voicings from chord names
   // alone, so we use the saved voicings array if present, otherwise leave
   // each step with an empty voicing the user can fill in later.
   const loadProgressionToSequencer = (progression) => {
@@ -409,7 +409,7 @@ export default function App() {
         {/* === IDENTIFY TAB === */}
         {tab === "identify" && (
           <>
-            <div className="grid md:grid-cols-[auto_1fr] gap-6 md:gap-8 items-start">
+            <div className="space-y-6 md:space-y-8">
               {/* Fretboard card */}
               <div className="relative">
                 <div className="absolute inset-0 bg-[#1a0f08] translate-x-1.5 translate-y-1.5 rounded-[2px]" />
