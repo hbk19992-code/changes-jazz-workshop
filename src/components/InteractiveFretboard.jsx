@@ -296,7 +296,7 @@ export function InteractiveFretboard({
                 fill="none"
               />
             );
-          });}
+          })}
         </g>
 
         {/* Nut (only when at the start of the neck) */}
