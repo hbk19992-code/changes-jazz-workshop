@@ -46,10 +46,10 @@ export function InteractiveFretboard({
   const neckTop = 50;
   const neckBottom = 470;
   const neckH = neckBottom - neckTop;
-  // 5 string gaps (between 6 strings) plus a small margin top/bottom.
-  // Use 5.4 so each gap is generous, with strings starting closer to top.
-  const stringGap = neckH / 5.4;
-  const stringTop = neckTop + stringGap * 0.2;
+  // 6 strings, evenly spaced. With margin = half-gap on both top and bottom,
+  // the layout is perfectly symmetric and string spacing is uniform.
+  const stringGap = neckH / 6;
+  const stringTop = neckTop + stringGap / 2;
 
   // Compute the visible fret window's positions.
   // We treat the visible window as one "scale-length unit" but offset by the
