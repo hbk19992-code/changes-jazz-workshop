@@ -44,12 +44,14 @@ export function InteractiveFretboard({
   const neckTop = 44;
   const neckBottom = 388;
   const neckH = neckBottom - neckTop;
-  const stringGap = neckH / 6.2;
-  const stringTop = neckTop + stringGap * 1.0;
+  // Strings are spaced across 6 strings (5 gaps between them) with a tiny
+  // margin top and bottom. Bigger gap = more room around dots.
+  const stringGap = neckH / 5.5;
+  const stringTop = neckTop + stringGap * 0.4;
 
-  // Compute the visible fret window’s positions.
-  // We treat the visible window as one “scale-length unit” but offset by the
-  // starting fret’s position. Multiplying by a scale factor stretches it
+  // Compute the visible fret window's positions.
+  // We treat the visible window as one "scale-length unit" but offset by the
+  // starting fret's position. Multiplying by a scale factor stretches it
   // across the available width. This gives realistic narrowing.
   const visibleW = W - padLeft - padRight;
   const fromUnit = FRET_POSITIONS_UNIT[startFret - 1];
@@ -409,18 +411,17 @@ export function InteractiveFretboard({
             return (
               <g key={i} onClick={() => setString(i, 0)} style={{ cursor: "pointer" }}>
                 <text
-                  x={30}
-                  y={y + 5}
+                  x={36}
+                  y={y + 7}
                   textAnchor="middle"
-                  fontSize={18}
+                  fontSize={22}
                   fill="#6b1f2e"
                   fontWeight={700}
                   fontFamily="'Fraunces', serif"
                 >
                   ×
                 </text>
-                {/* Hidden right-click target to toggle to muted via tap */}
-                <rect x={20} y={y - 9} width={20} height={18} fill="transparent" />
+                <rect x={22} y={y - 14} width={28} height={28} fill="transparent" />
               </g>
             );
           }
@@ -432,19 +433,19 @@ export function InteractiveFretboard({
             return (
               <g key={i} onClick={() => setString(i, null)} style={{ cursor: "pointer" }}>
                 <circle
-                  cx={30}
+                  cx={36}
                   cy={y}
-                  r={11}
+                  r={14}
                   fill={fillColor}
                   stroke="#1a0f08"
-                  strokeWidth={1.8}
+                  strokeWidth={2}
                 />
                 {colorByInterval && iv && (
                   <text
-                    x={30}
-                    y={y + 4}
+                    x={36}
+                    y={y + 5}
                     textAnchor="middle"
-                    fontSize={iv.length > 1 ? 9 : 11}
+                    fontSize={iv.length > 1 ? 11 : 13}
                     fill="#fbf4e3"
                     fontWeight={700}
                     fontFamily="'Fraunces', serif"
@@ -459,17 +460,17 @@ export function InteractiveFretboard({
           return (
             <g key={i} onClick={() => setString(i, null)} style={{ cursor: "pointer" }}>
               <text
-                x={30}
-                y={y + 4}
+                x={36}
+                y={y + 5}
                 textAnchor="middle"
-                fontSize={11}
+                fontSize={14}
                 fill="#8a7560"
                 fontFamily="'Fraunces', serif"
                 opacity={0.5}
               >
                 ×
               </text>
-              <rect x={20} y={y - 9} width={20} height={18} fill="transparent" />
+              <rect x={22} y={y - 14} width={28} height={28} fill="transparent" />
             </g>
           );
         })}
