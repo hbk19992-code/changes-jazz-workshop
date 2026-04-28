@@ -65,8 +65,8 @@ export function InteractiveFretboard({
     return padLeft + ((u - fromUnit) / unitSpan) * visibleW;
   };
 
-  // String Y position (low E top, high e bottom)
-  const stringY = (i) => stringTop + i * stringGap;
+  // String Y position (high e top, low E bottom - standard tab view)
+  const stringY = (i) => stringTop + (5 - i) * stringGap;
 
   // Note dot is centered between (fret-1) and (fret) lines
   const dotX = (absFret) => {
@@ -246,7 +246,17 @@ export function InteractiveFretboard({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          {/* iOS Safari 버그로 인해 stringShadow 필터는 제거했습니다 */}
+          <filter id="stringShadow">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="0.4" />
+            <feOffset dx="0" dy="1" />
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.5" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* Drag/scroll background catches all pointer events not on tap zones */}
@@ -274,7 +284,7 @@ export function InteractiveFretboard({
           pointerEvents="none"
         />
 
-        {/* Wood grain streaks (이게 아까 줄로 착각하셨던 그 4개의 배경 선입니다!) */}
+        {/* Wood grain streaks */}
         <g opacity={0.35} pointerEvents="none">
           {[0.18, 0.42, 0.66, 0.86].map((yFrac, i) => {
             const yLine = neckTop + neckH * yFrac;
@@ -361,18 +371,8 @@ export function InteractiveFretboard({
           return null;
         })}
 
-        {/* Strings Shadows (Safari Bug Fix: 수동으로 그림자를 추가했습니다) */}
-        <g pointerEvents="none" opacity={0.4} transform="translate(0, 1.5)">
-          <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="#1a0d05" strokeWidth={5.2} />
-          <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="#1a0d05" strokeWidth={4.4} />
-          <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="#1a0d05" strokeWidth={3.6} />
-          <line x1={padLeft} y1={stringY(3)} x2={W - padRight} y2={stringY(3)} stroke="#1a0d05" strokeWidth={2.8} />
-          <line x1={padLeft} y1={stringY(4)} x2={W - padRight} y2={stringY(4)} stroke="#1a0d05" strokeWidth={2.2} />
-          <line x1={padLeft} y1={stringY(5)} x2={W - padRight} y2={stringY(5)} stroke="#1a0d05" strokeWidth={1.6} />
-        </g>
-
-        {/* Actual Strings */}
-        <g pointerEvents="none">
+        {/* Strings (with shadow) */}
+        <g filter="url(#stringShadow)" pointerEvents="none">
           <line x1={padLeft} y1={stringY(0)} x2={W - padRight} y2={stringY(0)} stroke="url(#bassString)" strokeWidth={5.2} />
           <line x1={padLeft} y1={stringY(1)} x2={W - padRight} y2={stringY(1)} stroke="url(#bassString)" strokeWidth={4.4} />
           <line x1={padLeft} y1={stringY(2)} x2={W - padRight} y2={stringY(2)} stroke="url(#bassString)" strokeWidth={3.6} />
@@ -407,6 +407,8 @@ export function InteractiveFretboard({
           const openKey = `${i}-0`;
           const iv = chordIntervals?.get?.(openKey) || null;
 
+          // Single column at x=30 — toggles between × ↔ ○ ↔ blank
+          // Click cycles; for clarity we show the active state as a colored circle/×
           if (isMuted) {
             return (
               <g key={i} onClick={() => setString(i, 0)} style={{ cursor: "pointer" }}>
@@ -456,6 +458,7 @@ export function InteractiveFretboard({
               </g>
             );
           }
+          // Fretted — show small × that lets the user mute again
           return (
             <g
               key={i}
