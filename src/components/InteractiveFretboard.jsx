@@ -36,14 +36,16 @@ export function InteractiveFretboard({
   const MAX_START = 20; // can scroll up to fret 24 (start 20 + 5 visible - 1)
   const endFret = startFret + NUM_VISIBLE - 1;
 
-  // Layout — wider per-fret spacing means we shrink overall width and
-  // give each fret cell room to breathe. Aspect ~ 600 × 230.
+  // Layout — viewBox aspect ratio drives the rendered size. Wider H relative
+  // to W means the SVG renders TALLER when stretched to a fixed container
+  // width. This makes everything (frets, strings, dots, fonts) bigger.
+  // Current: 600 × 360 → roughly 5:3, gives a ~660px tall fretboard at 1100px wide.
   const W = 600;
-  const H = 230;
-  const padLeft = 60;       // includes nut + open-string column
-  const padRight = 25;
-  const neckTop = 28;
-  const neckBottom = 188;
+  const H = 360;
+  const padLeft = 70;       // includes nut + open-string column
+  const padRight = 30;
+  const neckTop = 38;
+  const neckBottom = 308;
   const neckH = neckBottom - neckTop;
   const stringGap = neckH / 6.2;  // 6 strings, slightly tighter than 6 gaps
   const stringTop = neckTop + stringGap * 1.0;
